@@ -1,0 +1,68 @@
+:root {
+  --bg: #F7F6F2;
+  --surface: #FFFFFF;
+  --surface2: #F0EFE9;
+  --border: rgba(0,0,0,0.08);
+  --border-med: rgba(0,0,0,0.14);
+  --text: #1A1916;
+  --text2: #6B6A65;
+  --text3: #A8A7A2;
+  --accent: #2D5F3F;
+  --accent-light: #E8F1EC;
+  --accent-mid: #4A8C5C;
+  --danger: #C0392B;
+  --danger-light: #FDEEEC;
+  --warn: #B7620A;
+  --warn-light: #FEF3E7;
+  --good: #1A6B45;
+  --good-light: #E5F4EC;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --nav-h: 64px;
+  --font: 'DM Sans', sans-serif;
+  --font-display: 'DM Serif Display', serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+#root {
+  width: 100%;
+  max-width: 420px;
+  min-height: 100vh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  font-family: var(--font);
+  cursor: pointer;
+}
+
+input, textarea, select {
+  font-family: var(--font);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
