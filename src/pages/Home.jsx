@@ -68,10 +68,12 @@ export default function Home({ onOpenModal }) {
 
   const avgColor = avg ? scoreColor(Math.round(parseFloat(avg))) : null
 
+  const navHeight = 'calc(var(--nav-h) + env(safe-area-inset-bottom, 0px))'
+
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: 'var(--nav-h)', overflowY: 'auto' }}>
-      <div style={{ padding: '48px 24px 18px' }}>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '24px', lineHeight: 1.2 }}>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingBottom: navHeight, overflowY: 'auto' }}>
+      <div style={{ padding: '52px 24px 16px' }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', lineHeight: 1.2 }}>
           {greeting()}{profile ? `, ${profile}` : ''}
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text3)', marginTop: '2px', fontWeight: 300 }}>
@@ -79,15 +81,15 @@ export default function Home({ onOpenModal }) {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '0 24px 20px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', padding: '0 24px 16px' }}>
         <div style={statCard}>
-          <div style={{ fontSize: '26px', fontWeight: 500, color: avgColor ? avgColor.text : 'var(--text3)' }}>
+          <div style={{ fontSize: '24px', fontWeight: 500, color: avgColor ? avgColor.text : 'var(--text3)' }}>
             {avg ?? '—'}
           </div>
           <div style={statLabel}>{t('average_today')}</div>
         </div>
         <div style={statCard}>
-          <div style={{ fontSize: '26px', fontWeight: 500, color: entries.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>
+          <div style={{ fontSize: '24px', fontWeight: 500, color: entries.length > 0 ? 'var(--accent)' : 'var(--text3)' }}>
             {entries.length}
           </div>
           <div style={statLabel}>{t('entries')}</div>
@@ -98,11 +100,11 @@ export default function Home({ onOpenModal }) {
 
       <div style={{ padding: '0 24px', flex: 1 }}>
         {loading ? null : entries.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)' }}>
-            <strong style={{ display: 'block', fontSize: '16px', color: 'var(--text2)', marginBottom: '6px', fontWeight: 500 }}>
+          <div style={{ textAlign: 'center', padding: '40px 24px', color: 'var(--text3)', lineHeight: 1.6 }}>
+            <strong style={{ display: 'block', fontSize: '15px', color: 'var(--text2)', marginBottom: '6px', fontWeight: 500 }}>
               {t('no_entries')}
             </strong>
-            {t('no_entries_sub')}
+            <span style={{ fontSize: '13px' }}>{t('no_entries_sub')}</span>
           </div>
         ) : entries.map(e => {
           const c = scoreColor(e.value)
@@ -127,7 +129,23 @@ export default function Home({ onOpenModal }) {
 
       <button
         onClick={() => onOpenModal(fetchToday)}
-        style={{ position: 'fixed', bottom: 'calc(var(--nav-h) + 16px)', right: 'calc(50% - 210px + 16px)', width: 52, height: 52, borderRadius: '50%', background: 'var(--accent)', color: 'white', border: 'none', fontSize: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 12px rgba(45,95,63,0.35)', zIndex: 99 }}
+        style={{
+          position: 'fixed',
+          bottom: 'calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px)',
+          right: '16px',
+          width: 52,
+          height: 52,
+          borderRadius: '50%',
+          background: 'var(--accent)',
+          color: 'white',
+          border: 'none',
+          fontSize: '24px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 12px rgba(45,95,63,0.35)',
+          zIndex: 99,
+        }}
       >
         +
       </button>
