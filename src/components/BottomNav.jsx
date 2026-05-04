@@ -45,13 +45,14 @@ export default function BottomNav({ screen, setScreen }) {
       transform: 'translateX(-50%)',
       width: '100%',
       maxWidth: '420px',
-      height: 'var(--nav-h)',
       background: 'var(--surface)',
       borderTop: '1px solid var(--border)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-around',
       zIndex: 100,
+      paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+      height: 'calc(var(--nav-h) + env(safe-area-inset-bottom, 0px))',
     }}>
       {items.map(item => (
         <button
