@@ -23,6 +23,9 @@ export default function Profile({ user }) {
   const [profile, setProfile] = useState(null)
   const [pushSupported, setPushSupported] = useState(false)
   const [togglingReminder, setTogglingReminder] = useState(false)
+  const [shareToken, setShareToken] = useState(null)
+  const [shareLoading, setShareLoading] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setPushSupported('serviceWorker' in navigator && 'PushManager' in window && !!VAPID_PUBLIC_KEY)
@@ -41,8 +44,47 @@ export default function Profile({ user }) {
         if (data.reminder_times?.length) setReminderTime(data.reminder_times[0])
       }
     }
+    async function fetchShareToken() {
+      const { data } = await supabase
+        .from('share_tokens')
+        .select('token, expires_at')
+        .eq('user_id', user.id)
+        .gte('expires_at', new Date().toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      setShareToken(data || null)
+    }
     fetchProfile()
+    fetchShareToken()
   }, [user.id])
+
+  async function generateShareToken() {
+    setShareLoading(true)
+    const token = Array.from(crypto.getRandomValues(new Uint8Array(24)))
+      .map(b => b.toString(16).padStart(2, '0')).join('')
+    const expires_at = new Date(Date.now() + 7 * 86400000).toISOString()
+    await supabase.from('share_tokens').upsert(
+      { user_id: user.id, token, expires_at },
+      { onConflict: 'user_id' }
+    )
+    setShareToken({ token, expires_at })
+    setShareLoading(false)
+  }
+
+  async function revokeShareToken() {
+    setShareLoading(true)
+    await supabase.from('share_tokens').delete().eq('user_id', user.id)
+    setShareToken(null)
+    setShareLoading(false)
+  }
+
+  function copyShareLink() {
+    const url = `${window.location.origin}/share/${shareToken.token}`
+    navigator.clipboard.writeText(url)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   async function toggleReminder() {
     if (togglingReminder) return
@@ -83,7 +125,6 @@ export default function Profile({ user }) {
         ])
 
       } else {
-        // Disable: unsubscribe current device only
         const reg = await getSwRegistration()
         if (reg) {
           const sub = await reg.pushManager.getSubscription()
@@ -95,7 +136,6 @@ export default function Profile({ user }) {
             await sub.unsubscribe()
           }
         }
-        // Check if any subscriptions remain; if not, disable reminder
         const { count } = await supabase
           .from('push_subscriptions')
           .select('id', { count: 'exact', head: true })
@@ -263,10 +303,32 @@ export default function Profile({ user }) {
           {t('export_all')}
         </button>
 
-        <button onClick={() => alert('Disponibile nella prossima versione.')} style={outlineBtn}>
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M4 7l4-4 4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 13h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-          {t('share_therapist')}
-        </button>
+        {!shareToken ? (
+          <button onClick={generateShareToken} disabled={shareLoading} style={outlineBtn}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V3M4 7l4-4 4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/><path d="M2 13h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+            {shareLoading ? '…' : t('share_therapist')}
+          </button>
+        ) : (
+          <div style={{ border: '1px solid var(--border-med)', borderRadius: 'var(--radius)', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--accent)' }}>
+              {t('share_active')}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text3)', wordBreak: 'break-all', background: 'var(--bg)', padding: '8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
+              {`${window.location.origin}/share/${shareToken.token}`}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text3)' }}>
+              {t('share_expires')} {new Date(shareToken.expires_at).toLocaleDateString(i18n.language === 'it' ? 'it-IT' : 'en-GB')}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button onClick={copyShareLink} style={{ ...outlineBtn, flex: 1, color: copied ? 'var(--accent)' : 'var(--text2)', borderColor: copied ? 'var(--accent)' : 'var(--border-med)' }}>
+                {copied ? t('share_copied') : t('share_copy')}
+              </button>
+              <button onClick={revokeShareToken} disabled={shareLoading} style={{ ...outlineBtn, flex: 1, color: 'var(--danger)', borderColor: 'var(--border-med)' }}>
+                {t('share_revoke')}
+              </button>
+            </div>
+          </div>
+        )}
 
         <button onClick={handleLogout} style={{ ...outlineBtn, color: 'var(--danger)', marginTop: '8px' }}>
           {t('logout')}
