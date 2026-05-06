@@ -52,4 +52,9 @@ export default {
   average_today: 'today\'s average',
   push_denied: 'Notification permission denied. Enable it in your browser settings.',
   push_not_supported: 'Push notifications not supported on this browser',
+  share_active: 'Active link — read only',
+  share_expires: 'Expires on',
+  share_copy: 'Copy link',
+  share_copied: 'Copied!',
+  share_revoke: 'Revoke',
 }

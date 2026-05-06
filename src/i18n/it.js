@@ -52,4 +52,9 @@ export default {
   average_today: 'media oggi',
   push_denied: 'Permesso notifiche negato. Abilitalo nelle impostazioni del browser.',
   push_not_supported: 'Notifiche push non supportate su questo browser',
+  share_active: 'Link attivo — sola lettura',
+  share_expires: 'Scade il',
+  share_copy: 'Copia link',
+  share_copied: 'Copiato!',
+  share_revoke: 'Revoca',
 }
