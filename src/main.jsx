@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
+import ShareView from './pages/ShareView'
 import './i18n'
 import './index.css'
 
@@ -13,10 +14,16 @@ if ('serviceWorker' in navigator) {
   })
 }
 
+const shareMatch = window.location.pathname.match(/^\/share\/([^/]+)/)
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    {shareMatch ? (
+      <ShareView token={shareMatch[1]} />
+    ) : (
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    )}
   </React.StrictMode>
 )
