@@ -12,7 +12,10 @@ export default async function handler(req, res) {
   const hasKey = !!process.env.SUPABASE_SERVICE_KEY
 
   const { token } = req.query
-  if (!token) return res.status(400).json({ error: 'Token mancante', env: { hasUrl, hasKey } })
+  if (!token) {
+    const { count } = await supabase.from('share_tokens').select('*', { count: 'exact', head: true })
+    return res.status(400).json({ error: 'Token mancante', env: { hasUrl, hasKey }, tokenCount: count })
+  }
 
   const { data: shareToken, error: tokenErr } = await supabase
     .from('share_tokens')
