@@ -31,7 +31,8 @@ self.addEventListener('fetch', e => {
 })
 
 self.addEventListener('push', e => {
-  const data = e.data?.json() ?? {}
+  let data = {}
+  try { data = e.data?.json() ?? {} } catch { data = { body: e.data?.text() } }
   e.waitUntil(
     self.registration.showNotification(data.title || '🧠 Moody', {
       body: data.body || 'Come stai adesso?',
