@@ -51,37 +51,29 @@ export default function Profile({ user }) {
       const newVal = !reminderOn
 
       if (newVal) {
-        console.log('[push] step 1: richiedendo permesso...')
         const permission = await Notification.requestPermission()
-        console.log('[push] permesso:', permission)
         if (permission !== 'granted') {
           alert(t('push_denied'))
           setTogglingReminder(false)
           return
         }
 
-        console.log('[push] step 2: ottenendo SW registration...')
         const reg = await getSwRegistration()
-        console.log('[push] reg:', reg)
         if (!reg) {
           alert('Errore: service worker non disponibile')
           setTogglingReminder(false)
           return
         }
 
-        console.log('[push] step 3: subscribing con VAPID key:', VAPID_PUBLIC_KEY?.slice(0, 20))
         const subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         })
-        console.log('[push] subscription ok:', subscription.endpoint?.slice(0, 40))
 
-        console.log('[push] step 4: salvando su Supabase...')
-        const { error: upsertErr } = await supabase.from('push_subscriptions').upsert({
+        await supabase.from('push_subscriptions').upsert({
           user_id: user.id,
           subscription: subscription.toJSON(),
         }, { onConflict: 'user_id' })
-        console.log('[push] upsert error:', upsertErr)
 
       } else {
         // Disable: unsubscribe
@@ -101,7 +93,7 @@ export default function Profile({ user }) {
 
     } catch (err) {
       console.error('Push subscription error:', err)
-      alert('Errore: ' + (err?.message || err))
+      alert(t('push_denied'))
     }
     setTogglingReminder(false)
   }
