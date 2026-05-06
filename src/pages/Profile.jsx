@@ -71,23 +71,41 @@ export default function Profile({ user }) {
         })
 
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+        const subJson = subscription.toJSON()
 
         await Promise.all([
           supabase.from('push_subscriptions').upsert({
             user_id: user.id,
-            subscription: subscription.toJSON(),
-          }, { onConflict: 'user_id' }),
+            endpoint: subscription.endpoint,
+            subscription: subJson,
+          }, { onConflict: 'user_id,endpoint' }),
           supabase.from('profiles').update({ timezone }).eq('id', user.id),
         ])
 
       } else {
-        // Disable: unsubscribe
+        // Disable: unsubscribe current device only
         const reg = await getSwRegistration()
         if (reg) {
           const sub = await reg.pushManager.getSubscription()
-          if (sub) await sub.unsubscribe()
+          if (sub) {
+            await supabase.from('push_subscriptions')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('endpoint', sub.endpoint)
+            await sub.unsubscribe()
+          }
         }
-        await supabase.from('push_subscriptions').delete().eq('user_id', user.id)
+        // Check if any subscriptions remain; if not, disable reminder
+        const { count } = await supabase
+          .from('push_subscriptions')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id)
+        if (!count) {
+          await supabase.from('profiles').update({ reminder_enabled: false }).eq('id', user.id)
+          setReminderOn(false)
+          setTogglingReminder(false)
+          return
+        }
       }
 
       setReminderOn(newVal)
