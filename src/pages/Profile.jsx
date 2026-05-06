@@ -93,6 +93,7 @@ export default function Profile({ user }) {
 
     } catch (err) {
       console.error('Push subscription error:', err)
+      alert('Errore: ' + (err?.message || err))
     }
     setTogglingReminder(false)
   }
