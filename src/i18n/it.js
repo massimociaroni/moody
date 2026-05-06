@@ -50,4 +50,6 @@ export default {
   have_account: 'Hai già un account?',
   logout: 'Esci',
   average_today: 'media oggi',
+  push_denied: 'Permesso notifiche negato. Abilitalo nelle impostazioni del browser.',
+  push_not_supported: 'Notifiche push non supportate su questo browser',
 }

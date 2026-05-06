@@ -50,4 +50,6 @@ export default {
   have_account: 'Already have an account?',
   logout: 'Log out',
   average_today: 'today\'s average',
+  push_denied: 'Notification permission denied. Enable it in your browser settings.',
+  push_not_supported: 'Push notifications not supported on this browser',
 }

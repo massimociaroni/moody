@@ -2,11 +2,31 @@ import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../lib/supabase'
 
+const VAPID_PUBLIC_KEY = import.meta.env.VITE_VAPID_PUBLIC_KEY
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const raw = window.atob(base64)
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)))
+}
+
+async function getSwRegistration() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+  return navigator.serviceWorker.ready
+}
+
 export default function Profile({ user }) {
   const { t, i18n } = useTranslation()
   const [reminderOn, setReminderOn] = useState(false)
   const [reminderTime, setReminderTime] = useState('09:00')
   const [profile, setProfile] = useState(null)
+  const [pushSupported, setPushSupported] = useState(false)
+  const [togglingReminder, setTogglingReminder] = useState(false)
+
+  useEffect(() => {
+    setPushSupported('serviceWorker' in navigator && 'PushManager' in window && !!VAPID_PUBLIC_KEY)
+  }, [])
 
   useEffect(() => {
     async function fetchProfile() {
@@ -25,12 +45,56 @@ export default function Profile({ user }) {
   }, [user.id])
 
   async function toggleReminder() {
-    const newVal = !reminderOn
-    setReminderOn(newVal)
-    await supabase
-      .from('profiles')
-      .update({ reminder_enabled: newVal })
-      .eq('id', user.id)
+    if (togglingReminder) return
+    setTogglingReminder(true)
+    try {
+      const newVal = !reminderOn
+
+      if (newVal) {
+        // Enable: request permission and subscribe
+        const permission = await Notification.requestPermission()
+        if (permission !== 'granted') {
+          alert(t('push_denied'))
+          setTogglingReminder(false)
+          return
+        }
+
+        const reg = await getSwRegistration()
+        if (!reg) {
+          setTogglingReminder(false)
+          return
+        }
+
+        const subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
+        })
+
+        await supabase.from('push_subscriptions').upsert({
+          user_id: user.id,
+          subscription: subscription.toJSON(),
+        }, { onConflict: 'user_id' })
+
+      } else {
+        // Disable: unsubscribe
+        const reg = await getSwRegistration()
+        if (reg) {
+          const sub = await reg.pushManager.getSubscription()
+          if (sub) await sub.unsubscribe()
+        }
+        await supabase.from('push_subscriptions').delete().eq('user_id', user.id)
+      }
+
+      setReminderOn(newVal)
+      await supabase
+        .from('profiles')
+        .update({ reminder_enabled: newVal })
+        .eq('id', user.id)
+
+    } catch (err) {
+      console.error('Push subscription error:', err)
+    }
+    setTogglingReminder(false)
   }
 
   async function updateReminderTime(val) {
@@ -86,6 +150,8 @@ export default function Profile({ user }) {
     .slice(0, 1)
     .toUpperCase()
 
+  const reminderDisabledReason = !pushSupported ? t('push_not_supported') : null
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 'var(--nav-h)' }}>
       <div style={{ padding: '48px 24px 24px' }}>
@@ -109,19 +175,36 @@ export default function Profile({ user }) {
 
       <div style={{ padding: '0 24px' }}>
         <div style={settingsRow}>
-          <div>
-            <div style={{ fontSize: '14px', color: 'var(--text)' }}>{t('reminder')}</div>
-            <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>{t('reminder_sub')}</div>
+          <div style={{ flex: 1, paddingRight: 12 }}>
+            <div style={{ fontSize: '14px', color: reminderDisabledReason ? 'var(--text3)' : 'var(--text)' }}>
+              {t('reminder')}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text3)', marginTop: '2px' }}>
+              {reminderDisabledReason || t('reminder_sub')}
+            </div>
           </div>
           <button
-            onClick={toggleReminder}
-            style={{ width: 44, height: 26, borderRadius: 13, background: reminderOn ? 'var(--accent)' : 'var(--border-med)', border: 'none', position: 'relative', flexShrink: 0, transition: 'background 0.2s', cursor: 'pointer' }}
+            onClick={pushSupported ? toggleReminder : undefined}
+            disabled={!pushSupported || togglingReminder}
+            style={{
+              width: 44, height: 26, borderRadius: 13,
+              background: reminderOn && pushSupported ? 'var(--accent)' : 'var(--border-med)',
+              border: 'none', position: 'relative', flexShrink: 0,
+              transition: 'background 0.2s',
+              cursor: pushSupported && !togglingReminder ? 'pointer' : 'default',
+              opacity: pushSupported ? 1 : 0.4,
+            }}
           >
-            <span style={{ position: 'absolute', width: 20, height: 20, borderRadius: '50%', background: 'white', top: 3, left: reminderOn ? 21 : 3, transition: 'left 0.2s' }} />
+            <span style={{
+              position: 'absolute', width: 20, height: 20, borderRadius: '50%',
+              background: 'white', top: 3,
+              left: reminderOn && pushSupported ? 21 : 3,
+              transition: 'left 0.2s',
+            }} />
           </button>
         </div>
 
-        {reminderOn && (
+        {reminderOn && pushSupported && (
           <div style={settingsRow}>
             <div style={{ fontSize: '14px', color: 'var(--text)' }}>{t('reminder_time')}</div>
             <input
