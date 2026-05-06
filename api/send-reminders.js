@@ -12,6 +12,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+const MESSAGES_IT = [
+  (name) => `Come stai, ${name}? 🌿`,
+  (name) => `${name}, hai un minuto per te?`,
+  (name) => `Pausa riflessione, ${name}. Come ti senti?`,
+  (name) => `È ora del check-in, ${name} ✨`,
+  (name) => `${name}, com'è il tuo umore adesso?`,
+  (name) => `Fermati un secondo, ${name}. Come va?`,
+  (name) => `${name}, come stai in questo momento?`,
+]
+
+const MESSAGES_EN = [
+  (name) => `How are you feeling, ${name}? 🌿`,
+  (name) => `${name}, take a moment for yourself.`,
+  (name) => `Time for your check-in, ${name} ✨`,
+  (name) => `Hey ${name}, how's your mood right now?`,
+  (name) => `${name}, a quick check-in?`,
+  (name) => `Pause for a second, ${name}. How are you?`,
+  (name) => `${name}, how are you doing right now?`,
+]
+
+function pickMessage(messages, name) {
+  const day = new Date().getDay()
+  return messages[day % messages.length](name)
+}
+
 function localTimeForZone(timezone) {
   try {
     const parts = new Intl.DateTimeFormat('en-GB', {
@@ -35,13 +60,12 @@ export default async function handler(req, res) {
 
   const { data: profiles, error: profilesErr } = await supabase
     .from('profiles')
-    .select('id, reminder_times, language, timezone')
+    .select('id, display_name, reminder_times, language, timezone')
     .eq('reminder_enabled', true)
 
   if (profilesErr) return res.status(500).json({ error: profilesErr.message })
   if (!profiles?.length) return res.json({ sent: 0, checked: 0 })
 
-  // Match users whose reminder time matches current local time in their timezone
   const dueUsers = profiles.filter(p => {
     const tz = p.timezone || 'Europe/Rome'
     const localNow = localTimeForZone(tz)
@@ -61,26 +85,30 @@ export default async function handler(req, res) {
     subscriptions.map(({ subscription, user_id }) => {
       const profile = dueUsers.find(p => p.id === user_id)
       const isIT = !profile?.language || profile.language === 'it'
+      const name = profile?.display_name?.split(' ')[0] || (isIT ? 'tu' : 'you')
+      const messages = isIT ? MESSAGES_IT : MESSAGES_EN
+      const body = pickMessage(messages, name)
+
       return webpush.sendNotification(
         subscription,
         JSON.stringify({
           title: '🧠 Moody',
-          body: isIT ? 'Come stai adesso?' : 'How are you feeling?',
+          body,
+          actions: [{ action: 'log', title: isIT ? '📝 Registra ora' : '📝 Log now' }],
         })
       )
     })
   )
 
-  // Remove stale subscriptions (410 Gone = user uninstalled app/revoked)
-  const staleIds = []
+  // Remove stale subscriptions (410 Gone = user revoked permission)
+  const staleEndpoints = []
   results.forEach((r, i) => {
     if (r.status === 'rejected' && r.reason?.statusCode === 410) {
-      staleIds.push(subscriptions[i].user_id)
+      staleEndpoints.push(subscriptions[i].subscription?.endpoint)
     }
   })
-  if (staleIds.length) {
-    await supabase.from('push_subscriptions').delete().in('user_id', staleIds)
-    await supabase.from('profiles').update({ reminder_enabled: false }).in('id', staleIds)
+  if (staleEndpoints.length) {
+    await supabase.from('push_subscriptions').delete().in('endpoint', staleEndpoints)
   }
 
   const sent = results.filter(r => r.status === 'fulfilled').length
