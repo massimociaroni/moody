@@ -11,12 +11,16 @@ export default async function handler(req, res) {
   const { token } = req.query
   if (!token) return res.status(400).json({ error: 'Token mancante' })
 
-  const { data: shareToken } = await supabase
+  const { data: shareToken, error: tokenErr } = await supabase
     .from('share_tokens')
     .select('user_id, expires_at')
     .eq('token', token)
-    .single()
+    .maybeSingle()
 
+  if (tokenErr) {
+    console.error('share_tokens query error:', tokenErr)
+    return res.status(500).json({ error: 'Errore server', detail: tokenErr.message })
+  }
   if (!shareToken) return res.status(404).json({ error: 'Link non valido' })
   if (new Date(shareToken.expires_at) < new Date()) {
     return res.status(410).json({ error: 'Link scaduto' })
