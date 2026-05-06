@@ -70,10 +70,15 @@ export default function Profile({ user }) {
           applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY),
         })
 
-        await supabase.from('push_subscriptions').upsert({
-          user_id: user.id,
-          subscription: subscription.toJSON(),
-        }, { onConflict: 'user_id' })
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone
+
+        await Promise.all([
+          supabase.from('push_subscriptions').upsert({
+            user_id: user.id,
+            subscription: subscription.toJSON(),
+          }, { onConflict: 'user_id' }),
+          supabase.from('profiles').update({ timezone }).eq('id', user.id),
+        ])
 
       } else {
         // Disable: unsubscribe

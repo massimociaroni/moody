@@ -12,28 +12,41 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+function localTimeForZone(timezone) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(new Date())
+    const h = parts.find(p => p.type === 'hour')?.value
+    const m = parts.find(p => p.type === 'minute')?.value
+    return `${h}:${m}`
+  } catch {
+    return null
+  }
+}
+
 export default async function handler(req, res) {
   if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: 'Unauthorized' })
   }
 
-  const now = new Date()
-  const hh = String(now.getUTCHours()).padStart(2, '0')
-  const mm = String(now.getUTCMinutes()).padStart(2, '0')
-  const currentTime = `${hh}:${mm}`
-
   const { data: profiles, error: profilesErr } = await supabase
     .from('profiles')
-    .select('id, reminder_times, language')
+    .select('id, reminder_times, language, timezone')
     .eq('reminder_enabled', true)
 
   if (profilesErr) return res.status(500).json({ error: profilesErr.message })
   if (!profiles?.length) return res.json({ sent: 0, checked: 0 })
 
-  // Match users whose reminder time matches current UTC minute
-  const dueUsers = profiles.filter(p =>
-    p.reminder_times?.some(t => t === currentTime)
-  )
+  // Match users whose reminder time matches current local time in their timezone
+  const dueUsers = profiles.filter(p => {
+    const tz = p.timezone || 'Europe/Rome'
+    const localNow = localTimeForZone(tz)
+    return localNow && p.reminder_times?.some(t => t === localNow)
+  })
 
   if (!dueUsers.length) return res.json({ sent: 0, checked: profiles.length })
 
