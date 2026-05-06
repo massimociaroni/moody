@@ -8,26 +8,16 @@ const supabase = createClient(
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
 
-  const hasUrl = !!process.env.SUPABASE_URL
-  const hasKey = !!process.env.SUPABASE_SERVICE_KEY
-
   const { token } = req.query
-  if (!token) {
-    const { count } = await supabase.from('share_tokens').select('*', { count: 'exact', head: true })
-    return res.status(400).json({ error: 'Token mancante', env: { hasUrl, hasKey }, tokenCount: count })
-  }
+  if (!token) return res.status(400).json({ error: 'Token mancante' })
 
-  const { data: shareToken, error: tokenErr } = await supabase
+  const { data: shareToken } = await supabase
     .from('share_tokens')
     .select('user_id, expires_at')
     .eq('token', token)
     .maybeSingle()
 
-  if (tokenErr) {
-    console.error('share_tokens query error:', tokenErr)
-    return res.status(500).json({ error: 'Errore server', detail: tokenErr.message })
-  }
-  if (!shareToken) return res.status(404).json({ error: 'Link non valido', env: { hasUrl, hasKey }, tokenLen: token.length })
+  if (!shareToken) return res.status(404).json({ error: 'Link non valido' })
   if (new Date(shareToken.expires_at) < new Date()) {
     return res.status(410).json({ error: 'Link scaduto' })
   }
