@@ -30,6 +30,7 @@ export default {
   language: 'Lingua',
   data: 'Dati',
   export_all: 'Esporta tutti i dati (CSV)',
+  export_pdf: 'Esporta report PDF',
   share_therapist: 'Condividi con terapeuta',
   mood_1: 'pessimo',
   mood_2: 'molto difficile',

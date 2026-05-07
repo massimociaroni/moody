@@ -206,6 +206,80 @@ export default function Profile({ user }) {
     URL.revokeObjectURL(url)
   }
 
+  async function exportPDF() {
+    const { data } = await supabase
+      .from('mood_entries')
+      .select('*')
+      .order('created_at', { ascending: true })
+
+    if (!data?.length) return
+
+    const isIT = i18n.language !== 'en'
+    const locale = isIT ? 'it-IT' : 'en-GB'
+    const moodLabels = isIT
+      ? ['','pessimo','molto difficile','difficile','giù','nella media','abbastanza ok','abbastanza bene','bene','molto bene','ottimo']
+      : ['','terrible','very hard','hard','low','average','okay','pretty good','good','very good','great']
+
+    const name = profile?.display_name || user.email
+    const today = new Date().toLocaleDateString(locale)
+    const avg = (data.reduce((s, e) => s + e.value, 0) / data.length).toFixed(1)
+
+    const rows = data.map(e => {
+      const d = new Date(e.created_at)
+      return `<tr>
+        <td>${d.toLocaleDateString(locale)}</td>
+        <td>${d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}</td>
+        <td style="text-align:center;font-weight:500;color:${e.value >= 7 ? '#1A5C38' : e.value >= 4 ? '#7A3F05' : '#8B2018'}">${e.value}</td>
+        <td style="color:#555">${moodLabels[e.value] || ''}</td>
+        <td style="color:#666">${e.note || ''}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <title>Moody — ${name}</title>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #2A2927; padding: 40px; font-size: 13px; }
+        h1 { font-size: 26px; font-style: italic; font-weight: normal; margin-bottom: 4px; font-family: Georgia, serif; }
+        .meta { color: #888; font-size: 12px; margin-bottom: 28px; }
+        .stats { display: flex; gap: 16px; margin-bottom: 28px; }
+        .stat { border: 1px solid #E0DFD9; border-radius: 10px; padding: 14px 18px; flex: 1; }
+        .stat-val { font-size: 22px; font-weight: 500; color: #2D5F3F; }
+        .stat-lbl { font-size: 11px; color: #999; margin-top: 4px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 11px; color: #999; font-weight: 500; padding: 6px 8px; border-bottom: 2px solid #E0DFD9; }
+        td { padding: 7px 8px; border-bottom: 1px solid #F0EFE9; vertical-align: top; }
+        tr:last-child td { border-bottom: none; }
+        .footer { margin-top: 32px; text-align: center; font-size: 11px; color: #BBB; }
+        @media print { body { padding: 24px; } }
+      </style>
+    </head><body>
+      <h1>${isIT ? `Umore di ${name}` : `${name}'s Mood Journal`}</h1>
+      <div class="meta">${isIT ? `Esportato il ${today} · ${data.length} registrazioni` : `Exported on ${today} · ${data.length} entries`}</div>
+      <div class="stats">
+        <div class="stat"><div class="stat-val">${avg}</div><div class="stat-lbl">${isIT ? 'media complessiva' : 'overall average'}</div></div>
+        <div class="stat"><div class="stat-val">${data.length}</div><div class="stat-lbl">${isIT ? 'registrazioni totali' : 'total entries'}</div></div>
+        <div class="stat"><div class="stat-val">${new Date(data[0].created_at).toLocaleDateString(locale)}</div><div class="stat-lbl">${isIT ? 'prima registrazione' : 'first entry'}</div></div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>${isIT ? 'Data' : 'Date'}</th>
+          <th>${isIT ? 'Ora' : 'Time'}</th>
+          <th>${isIT ? 'Valore' : 'Score'}</th>
+          <th>${isIT ? 'Umore' : 'Mood'}</th>
+          <th>${isIT ? 'Nota' : 'Note'}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="footer">Moody · moody-nine-gamma.vercel.app</div>
+      <script>window.onload = () => { window.print() }<\/script>
+    </body></html>`
+
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
   }
@@ -301,6 +375,11 @@ export default function Profile({ user }) {
         <button onClick={exportCSV} style={outlineBtn}>
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
           {t('export_all')}
+        </button>
+
+        <button onClick={exportPDF} style={outlineBtn}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="1" width="10" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M5 5h5M5 8h5M5 11h3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+          {t('export_pdf')}
         </button>
 
         {!shareToken ? (
