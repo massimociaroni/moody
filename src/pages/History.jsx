@@ -85,37 +85,35 @@ export default function History() {
 
   useEffect(() => { fetchEntries() }, [range])
 
+  const avg = entries.length
+    ? (entries.reduce((s, e) => s + e.value, 0) / entries.length).toFixed(1)
+    : null
+  const avgColor = avg ? scoreColor(Math.round(parseFloat(avg))) : null
+
+  // Stats still use daily averages
   const byDay = {}
   entries.forEach(e => {
     const d = e.created_at.slice(0, 10)
     if (!byDay[d]) byDay[d] = []
     byDay[d].push(e.value)
   })
-
   const dayAvgs = Object.entries(byDay).map(([d, vals]) => ({
     date: d,
     avg: parseFloat((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1)),
   }))
+  const bestDay = dayAvgs.length > 1 ? dayAvgs.reduce((a, b) => a.avg > b.avg ? a : b) : null
+  const worstDay = dayAvgs.length > 1 ? dayAvgs.reduce((a, b) => a.avg < b.avg ? a : b) : null
 
-  const labels = dayAvgs.map(d => {
-    const parts = d.date.split('-')
-    return `${parts[2]}/${parts[1]}`
+  // Chart uses individual points
+  const showTime = range <= 7
+  const labels = entries.map(e => {
+    const d = new Date(e.created_at)
+    const day = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`
+    if (showTime) return `${day} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+    return day
   })
-
-  const data = dayAvgs.map(d => d.avg)
-
-  const avg = entries.length
-    ? (entries.reduce((s, e) => s + e.value, 0) / entries.length).toFixed(1)
-    : null
-
-  const avgColor = avg ? scoreColor(Math.round(parseFloat(avg))) : null
-
-  const bestDay = dayAvgs.length > 1
-    ? dayAvgs.reduce((a, b) => a.avg > b.avg ? a : b)
-    : null
-  const worstDay = dayAvgs.length > 1
-    ? dayAvgs.reduce((a, b) => a.avg < b.avg ? a : b)
-    : null
+  const pointColors = entries.map(e => scoreColor(e.value).text)
+  const pointRadius = entries.length > 60 ? 2 : entries.length > 20 ? 3 : 5
 
   function exportCSV() {
     if (!entries.length) return
@@ -142,14 +140,16 @@ export default function History() {
   const chartData = {
     labels,
     datasets: [{
-      data,
-      borderColor: '#2D5F3F',
-      backgroundColor: 'rgba(45,95,63,0.07)',
-      pointBackgroundColor: '#2D5F3F',
-      pointRadius: data.length > 30 ? 2 : 4,
-      tension: 0.35,
+      data: entries.map(e => e.value),
+      borderColor: 'rgba(45,95,63,0.3)',
+      backgroundColor: 'rgba(45,95,63,0.05)',
+      pointBackgroundColor: pointColors,
+      pointBorderColor: pointColors,
+      pointRadius,
+      pointHoverRadius: pointRadius + 2,
+      tension: 0.3,
       fill: true,
-      borderWidth: 1.5,
+      borderWidth: 1.2,
     }],
   }
 
@@ -159,7 +159,12 @@ export default function History() {
       legend: { display: false },
       tooltip: {
         callbacks: {
-          label: ctx => `${ctx.parsed.y} · ${t(`mood_${Math.round(ctx.parsed.y)}`)}`
+          label: ctx => {
+            const e = entries[ctx.dataIndex]
+            const d = new Date(e.created_at)
+            const time = `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
+            return `${e.value} · ${t(`mood_${e.value}`)}  ${time}`
+          }
         }
       }
     },
@@ -176,7 +181,7 @@ export default function History() {
       },
       x: {
         ticks: { color: '#A8A7A2', maxRotation: 0, maxTicksLimit: 7 },
-        grid: { color: 'rgba(0,0,0,0.06)' },
+        grid: { display: false },
       },
     },
   }
